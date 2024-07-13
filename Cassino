@@ -1,0 +1,86 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <curl/curl.h>
+
+// Função para escrever o conteúdo recebido em um buffer
+size_t write_callback(void *ptr, size_t size, size_t nmemb, char *data) {
+    // Concatena os dados recebidos no buffer 'data'
+    strcat(data, ptr);
+    return size * nmemb;
+}
+
+// Função para extrair os multiplicadores do jogo Aviatrix
+void extrairMultiplicadores(char *html) {
+    // Procurando por padrões específicos que indicam os multiplicadores
+    char *inicio = strstr(html, "Multiplicadores:");
+    if (inicio != NULL) {
+        // Avançando para o início dos multiplicadores
+        inicio = strstr(inicio, "<ul>");
+        if (inicio != NULL) {
+            // Encontramos o início da lista de multiplicadores
+            char *fim = strstr(inicio, "</ul>");
+            if (fim != NULL) {
+                // Termina a string no final da lista de multiplicadores
+                *fim = '\0';
+                printf("Multiplicadores encontrados:\n");
+
+                // Imprime os multiplicadores encontrados
+                char *multiplicador = strstr(inicio, "<li>");
+                while (multiplicador != NULL && multiplicador < fim) {
+                    multiplicador += strlen("<li>");
+                    char *end_multiplicador = strstr(multiplicador, "</li>");
+                    if (end_multiplicador != NULL) {
+                        *end_multiplicador = '\0'; // Termina a string no fim do multiplicador
+                        printf("- %s\n", multiplicador);
+                        multiplicador = strstr(end_multiplicador, "<li>");
+                    } else {
+                        break;
+                    }
+                }
+            }
+        }
+    }
+}
+
+int main() {
+    CURL *curl;
+    CURLcode res;
+
+    // Inicializa a biblioteca libcurl
+    curl_global_init(CURL_GLOBAL_DEFAULT);
+
+    // Cria uma instância CURL
+    curl = curl_easy_init();
+    if (curl) {
+        // URL do jogo Aviatrix
+        const char *url = "https://leon76.bet/casino/aviatrix/play/aviatrix";
+
+        // Buffer para armazenar os dados recebidos
+        char data[4096] = ""; // Inicializa o buffer vazio
+
+        // Define a URL que será acessada
+        curl_easy_setopt(curl, CURLOPT_URL, url);
+
+        // Define a função de callback para processar os dados recebidos
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, data);
+
+        // Realiza a requisição HTTP GET e captura o resultado
+        res = curl_easy_perform(curl);
+        if (res != CURLE_OK) {
+            fprintf(stderr, "Erro ao acessar a URL: %s\n", curl_easy_strerror(res));
+        } else {
+            // Processa os dados recebidos para extrair os multiplicadores
+            extrairMultiplicadores(data);
+        }
+
+        // Libera a instância CURL
+        curl_easy_cleanup(curl);
+    }
+
+    // Finaliza a biblioteca libcurl
+    curl_global_cleanup();
+
+    return 0;
+}
